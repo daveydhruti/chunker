@@ -4,6 +4,7 @@ File Chunker - Split large files into chunks and rebuild them
 Usage:
     python chunker.py split <file> [chunk_size_mb]
     python chunker.py join <folder_name>
+    python chunker.py find [min_size_mb]
 """
 # Script enhanced using claude AI
 
@@ -70,6 +71,33 @@ def split_file(filepath, chunk_size_mb=50):
     print(f"\nSplit complete! Created {chunk_num} chunks")
     print(f"All files saved in: {folder_name}/")
     print(f"Original hash: {original_hash}")
+
+
+def find_large_files(min_size_mb=50):
+    """Find files larger than specified size in current directory"""
+    min_size_bytes = min_size_mb * 1024 * 1024
+    large_files = []
+    
+    for root, dirs, files in os.walk('.'):
+        # Skip hidden directories and chunk folders
+        dirs[:] = [d for d in dirs if not d.startswith('.') and not d.endswith('_chunks')]
+        
+        for file in files:
+            filepath = os.path.join(root, file)
+            try:
+                if os.path.getsize(filepath) >= min_size_bytes:
+                    size_mb = os.path.getsize(filepath) / (1024 * 1024)
+                    large_files.append((filepath, size_mb))
+            except OSError:
+                # Skip files we can't access
+                continue
+    
+    if large_files:
+        print(f"Files larger than {min_size_mb} MB:")
+        for filepath, size_mb in sorted(large_files, key=lambda x: x[1], reverse=True):
+            print(f"  {filepath} ({size_mb:.2f} MB)")
+    else:
+        print(f"No files larger than {min_size_mb} MB found.")
 
 
 def join_files(folder_name):
@@ -152,29 +180,41 @@ def join_files(folder_name):
 
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print("Usage:")
         print("  Split: python chunker.py split <file> [chunk_size_mb]")
         print("  Join:  python chunker.py join <folder_name>")
+        print("  Find:  python chunker.py find [min_size_mb]")
         print("\nExample:")
         print("  python chunker.py split large_file.zip 50")
         print("  python chunker.py join large_file.zip_chunks")
+        print("  python chunker.py find 100")
         sys.exit(1)
     
     command = sys.argv[1].lower()
     
     if command == 'split':
+        if len(sys.argv) < 3:
+            print("Error: Missing file argument for split command")
+            sys.exit(1)
         filepath = sys.argv[2]
         chunk_size = int(sys.argv[3]) if len(sys.argv) > 3 else 50
         split_file(filepath, chunk_size)
     
     elif command == 'join':
+        if len(sys.argv) < 3:
+            print("Error: Missing folder argument for join command")
+            sys.exit(1)
         folder_name = sys.argv[2]
         join_files(folder_name)
     
+    elif command == 'find':
+        min_size = int(sys.argv[2]) if len(sys.argv) > 2 else 50
+        find_large_files(min_size)
+    
     else:
         print(f"Unknown command: {command}")
-        print("Use 'split' or 'join'")
+        print("Use 'split', 'join', or 'find'")
         sys.exit(1)
 
 
